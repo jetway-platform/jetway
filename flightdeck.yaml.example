@@ -1,0 +1,47 @@
+# flightdeck.yaml — Flutter deployment config
+# Run `flightdeck init` to generate this interactively.
+# Docs: https://github.com/yourusername/flightdeck
+
+app:
+  name: "My Flutter App"
+  bundle_id: "com.yourcompany.myapp"       # iOS Bundle ID
+  package_name: "com.yourcompany.myapp"    # Android package name
+  # version: "1.2.0"                       # Optional: overrides pubspec.yaml version
+
+ios:
+  team_id: "ABCD1234EF"                    # Your Apple Developer Team ID
+  profile: distribution                    # distribution | adhoc | development
+  testflight_group: "Internal Testers"     # TestFlight group to add build to
+  scheme: "Runner"                         # Xcode scheme (default: Runner)
+
+  # App Store Connect API credentials (recommended over username/password)
+  # Can also be set as environment variables (see below)
+  api_key_id: "ABC123DEF4"                 # Key ID from App Store Connect
+  api_issuer_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  api_key_path: "./keys/AuthKey_ABC123.p8" # Download from App Store Connect → Keys
+
+android:
+  keystore: "./keys/release.keystore"      # Path to your release keystore
+  # keystore_password: ""                  # ⚠ Prefer env var: ANDROID_KEYSTORE_PASSWORD
+  key_alias: "release"
+  # key_password: ""                       # ⚠ Prefer env var: ANDROID_KEY_PASSWORD
+  track: internal                          # internal | alpha | beta | production
+  artifact: aab                            # aab (recommended) | apk
+  service_account: "./keys/play-service-account.json"  # Google Play service account
+
+
+# -------------------------------------------------------------------
+# Environment variables (alternative to embedding values above)
+# -------------------------------------------------------------------
+# iOS:
+#   APP_STORE_API_KEY_ID       — App Store Connect API Key ID
+#   APP_STORE_API_ISSUER_ID    — App Store Connect Issuer ID
+#   APP_STORE_API_KEY_PATH     — Path to .p8 key file
+#
+# Android:
+#   GOOGLE_PLAY_SERVICE_ACCOUNT — Path to service account JSON
+#   ANDROID_KEYSTORE_PASSWORD   — Keystore password
+#   ANDROID_KEY_PASSWORD        — Key password
+#
+# Set in .env file or in your CI environment (GitHub Actions secrets, etc.)
+# -------------------------------------------------------------------

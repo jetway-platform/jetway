@@ -1,0 +1,76 @@
+name: FlightDeck Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'           # Trigger on version tags like v1.0.0
+  workflow_dispatch:   # Allow manual trigger from GitHub UI
+    inputs:
+      platform:
+        description: 'Platform to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, ios, android]
+      track:
+        description: 'Store track'
+        required: true
+        default: 'internal'
+        type: choice
+        options: [internal, alpha, beta, production]
+
+jobs:
+  deploy:
+    name: Deploy to stores
+    runs-on: macos-latest      # Must be macOS for iOS builds
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install FlightDeck
+        run: dart pub global activate flightdeck
+
+      - name: Set up iOS signing
+        env:
+          # Store your .p8 key as a base64-encoded GitHub secret
+          APP_STORE_API_KEY_CONTENT: ${{ secrets.APP_STORE_API_KEY_CONTENT }}
+        run: |
+          mkdir -p keys
+          echo "$APP_STORE_API_KEY_CONTENT" | base64 --decode > keys/AuthKey.p8
+
+      - name: Set up Android signing
+        env:
+          KEYSTORE_CONTENT: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PLAY_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          mkdir -p keys
+          echo "$KEYSTORE_CONTENT" | base64 --decode > keys/release.keystore
+          echo "$PLAY_SERVICE_ACCOUNT" > keys/play-service-account.json
+
+      - name: Deploy with FlightDeck
+        env:
+          APP_STORE_API_KEY_ID: ${{ secrets.APP_STORE_API_KEY_ID }}
+          APP_STORE_API_ISSUER_ID: ${{ secrets.APP_STORE_API_ISSUER_ID }}
+          APP_STORE_API_KEY_PATH: ./keys/AuthKey.p8
+          GOOGLE_PLAY_SERVICE_ACCOUNT: ./keys/play-service-account.json
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          flightdeck deploy \
+            --platform ${{ github.event.inputs.platform || 'all' }} \
+            --track ${{ github.event.inputs.track || 'internal' }} \
+            --build-number ${{ github.run_number }}
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -rf keys/
