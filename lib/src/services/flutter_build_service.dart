@@ -27,9 +27,21 @@ class FlutterBuildService {
 
     await _runFlutter(args, 'iOS build');
 
-    // Locate the IPA
-    final ipaDir = path.join(Directory.current.path, 'build', 'ios', 'ipa');
-    final ipaFiles = Directory(ipaDir)
+    final ipaPath = findIosArtifact();
+    _logger.success('  ✓ IPA built: ${path.basename(ipaPath)}');
+    return ipaPath;
+  }
+
+  /// Locates an existing pre-built IPA file in the project's build directory.
+  String findIosArtifact() {
+    final ipaDir = Directory(path.join(Directory.current.path, 'build', 'ios', 'ipa'));
+    if (!ipaDir.existsSync()) {
+      throw FlightDeckBuildException(
+        'iOS build directory not found at: ${ipaDir.path}',
+      );
+    }
+
+    final ipaFiles = ipaDir
         .listSync()
         .whereType<File>()
         .where((f) => f.path.endsWith('.ipa'))
@@ -37,13 +49,11 @@ class FlutterBuildService {
 
     if (ipaFiles.isEmpty) {
       throw FlightDeckBuildException(
-        'iOS build succeeded but no .ipa file found in $ipaDir',
+        'No .ipa file found in ${ipaDir.path}',
       );
     }
 
-    final ipaPath = ipaFiles.first.path;
-    _logger.success('  ✓ IPA built: ${path.basename(ipaPath)}');
-    return ipaPath;
+    return ipaFiles.first.path;
   }
 
   /// Runs `flutter build appbundle` or `flutter build apk` and returns the artifact path.
@@ -63,28 +73,46 @@ class FlutterBuildService {
 
     await _runFlutter(args, 'Android build');
 
-    // Locate the artifact
-    String artifactPath;
-    if (isAab) {
-      artifactPath = path.join(
-        Directory.current.path,
-        'build', 'app', 'outputs', 'bundle', 'release', 'app-release.aab',
-      );
-    } else {
-      artifactPath = path.join(
-        Directory.current.path,
-        'build', 'app', 'outputs', 'flutter-apk', 'app-release.apk',
-      );
-    }
-
-    if (!File(artifactPath).existsSync()) {
-      throw FlightDeckBuildException(
-        'Android build succeeded but artifact not found at: $artifactPath',
-      );
-    }
-
+    final artifactPath = findAndroidArtifact(config);
     _logger.success('  ✓ ${isAab ? 'AAB' : 'APK'} built: ${path.basename(artifactPath)}');
     return artifactPath;
+  }
+
+  /// Locates an existing pre-built Android artifact (AAB or APK).
+  String findAndroidArtifact(FlightDeckConfig config) {
+    final isAab = config.android!.artifact == 'aab';
+    final standardPath = isAab
+        ? path.join(
+            Directory.current.path,
+            'build', 'app', 'outputs', 'bundle', 'release', 'app-release.aab',
+          )
+        : path.join(
+            Directory.current.path,
+            'build', 'app', 'outputs', 'flutter-apk', 'app-release.apk',
+          );
+
+    if (File(standardPath).existsSync()) {
+      return standardPath;
+    }
+
+    // Fallback: search directory for any artifact matching the extension
+    final candidateDir = Directory(path.dirname(standardPath));
+    if (candidateDir.existsSync()) {
+      final ext = isAab ? '.aab' : '.apk';
+      final files = candidateDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith(ext))
+          .toList();
+
+      if (files.isNotEmpty) {
+        return files.first.path;
+      }
+    }
+
+    throw FlightDeckBuildException(
+      'Android ${isAab ? 'AAB' : 'APK'} artifact not found at: $standardPath',
+    );
   }
 
   /// Runs `flutter pub get` to ensure dependencies are up to date.

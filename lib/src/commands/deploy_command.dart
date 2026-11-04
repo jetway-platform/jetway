@@ -115,6 +115,20 @@ class DeployCommand extends Command<int> {
           androidArtifactPath = await buildService.buildAndroid(config: config, buildNumber: buildNumber);
           _logger.info('');
         }
+      } else {
+        _logger.info('⏩ Skipping build step (--skip-build). Locating pre-built artifacts...');
+        final buildService = FlutterBuildService(_logger, verbose: verbose);
+
+        if (platform == DeployPlatform.ios || platform == DeployPlatform.all) {
+          ipaPath = buildService.findIosArtifact();
+          _logger.info('  ✓ Found iOS artifact: $ipaPath');
+        }
+
+        if (platform == DeployPlatform.android || platform == DeployPlatform.all) {
+          androidArtifactPath = buildService.findAndroidArtifact(config);
+          _logger.info('  ✓ Found Android artifact: $androidArtifactPath');
+        }
+        _logger.info('');
       }
 
       // --- UPLOAD PHASE ---
@@ -122,21 +136,23 @@ class DeployCommand extends Command<int> {
       String? playConsoleUrl;
 
       if (platform == DeployPlatform.ios || platform == DeployPlatform.all) {
+        if (ipaPath == null) {
+          throw FlightDeckBuildException('No iOS IPA found for upload.');
+        }
+
         _logger.info('🍎 Uploading to App Store Connect...');
 
         final ascService = AppStoreConnectService(_logger, config.ios!);
 
-        if (!skipValidate && ipaPath != null) {
+        if (!skipValidate) {
           await ascService.validateIpa(ipaPath: ipaPath);
         }
 
-        if (ipaPath != null) {
-          await ascService.uploadIpa(
-            ipaPath: ipaPath,
-            bundleId: config.app.bundleId,
-            verbose: verbose,
-          );
-        }
+        await ascService.uploadIpa(
+          ipaPath: ipaPath,
+          bundleId: config.app.bundleId,
+          verbose: verbose,
+        );
 
         // Add to TestFlight group if configured
         if (config.ios!.testflightGroup != null) {
@@ -158,6 +174,10 @@ class DeployCommand extends Command<int> {
       }
 
       if (platform == DeployPlatform.android || platform == DeployPlatform.all) {
+        if (androidArtifactPath == null) {
+          throw FlightDeckBuildException('No Android artifact found for upload.');
+        }
+
         _logger.info('🤖 Uploading to Google Play...');
 
         final playService = GooglePlayService(
@@ -167,7 +187,7 @@ class DeployCommand extends Command<int> {
         );
 
         await playService.uploadArtifact(
-          artifactPath: androidArtifactPath!,
+          artifactPath: androidArtifactPath,
           releaseNotes: releaseNotes,
           verbose: verbose,
         );
