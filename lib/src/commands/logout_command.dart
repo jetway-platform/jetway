@@ -55,3 +55,4 @@ class LogoutCommand extends Command<int> {
     return 0;
   }
 }
+

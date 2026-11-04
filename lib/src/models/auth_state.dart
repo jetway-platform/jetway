@@ -61,3 +61,4 @@ class AuthState {
   String toString() =>
       'AuthState(email: $userEmail, name: $userName, type: $tokenType, savedAt: $savedAt)';
 }
+

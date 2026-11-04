@@ -65,3 +65,4 @@ class WhoamiCommand extends Command<int> {
     return 0;
   }
 }
+
