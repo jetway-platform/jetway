@@ -7,6 +7,9 @@ import 'commands/deploy_command.dart';
 import 'commands/build_command.dart';
 import 'commands/certs_command.dart';
 import 'commands/env_command.dart';
+import 'commands/login_command.dart';
+import 'commands/logout_command.dart';
+import 'commands/whoami_command.dart';
 
 class JetwayRunner {
   static const version = '0.2.5';
@@ -22,7 +25,10 @@ class JetwayRunner {
       ..addCommand(DeployCommand(_logger))
       ..addCommand(BuildCommand(_logger))
       ..addCommand(CertsCommand(_logger))
-      ..addCommand(EnvCommand(_logger));
+      ..addCommand(EnvCommand(_logger))
+      ..addCommand(LoginCommand(_logger))
+      ..addCommand(LogoutCommand(_logger))
+      ..addCommand(WhoamiCommand(_logger));
 
     runner.argParser
       ..addFlag(
