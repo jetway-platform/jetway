@@ -9,6 +9,7 @@ import 'commands/certs_command.dart';
 import 'commands/env_command.dart';
 
 class FlightDeckRunner {
+  static const version = '0.2.5';
   final Logger _logger = Logger();
 
   Future<int> run(List<String> args) async {
@@ -39,7 +40,7 @@ class FlightDeckRunner {
 
     try {
       if (args.contains('--version')) {
-        _logger.info('flightdeck v0.1.0');
+        _logger.info('flightdeck v$version');
         return 0;
       }
 

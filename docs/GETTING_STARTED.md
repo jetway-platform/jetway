@@ -66,7 +66,7 @@ Verify:
 
 ```bash
 flightdeck --version
-# flightdeck v0.1.0
+# flightdeck v0.2.5
 ```
 
 ---
