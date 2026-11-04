@@ -2,11 +2,9 @@ import 'dart:io';
 import 'package:googleapis/androidpublisher/v3.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:mason_logger/mason_logger.dart';
+
 import '../models/config.dart';
 
-/// Uploads AAB/APK artifacts to Google Play using the Android Publisher API.
-/// Requires a Google Play service account JSON with the correct permissions.
-/// Docs: https://developers.google.com/android-publisher
 class GooglePlayService {
   final Logger _logger;
   final AndroidConfig _androidConfig;
@@ -14,7 +12,6 @@ class GooglePlayService {
 
   GooglePlayService(this._logger, this._androidConfig, this._packageName);
 
-  /// Uploads an AAB or APK to Google Play and promotes it to the configured track.
   Future<void> uploadArtifact({
     required String artifactPath,
     String? releaseNotes,
@@ -26,13 +23,10 @@ class GooglePlayService {
     final publisherApi = AndroidPublisherApi(client);
 
     try {
-      // 1. Create a new edit (all Play API changes happen in an edit session)
       _logger.info('  Creating Play Store edit...');
       final edit = await publisherApi.edits.insert(AppEdit(), _packageName);
       final editId = edit.id!;
-      _logger.detail('  Edit ID: $editId');
 
-      // 2. Upload the artifact
       final isAab = artifactPath.endsWith('.aab');
       _logger.info('  Uploading ${isAab ? 'AAB' : 'APK'} to Google Play...');
 
@@ -45,9 +39,8 @@ class GooglePlayService {
         versionCode = apk.versionCode?.toString();
       }
 
-      _logger.success('  ✓ Artifact uploaded (version code: $versionCode)');
+      _logger.success('  Artifact uploaded (version code: $versionCode)');
 
-      // 3. Assign the build to the configured track
       _logger.info('  Assigning build to track: ${_androidConfig.track}...');
       await _assignToTrack(
         publisherApi,
@@ -56,11 +49,10 @@ class GooglePlayService {
         releaseNotes: releaseNotes,
       );
 
-      // 4. Commit the edit (makes the upload live in Play Console)
       _logger.info('  Committing Play Store edit...');
       await publisherApi.edits.commit(_packageName, editId);
 
-      _logger.success('  ✓ Build live on Play Store (${_androidConfig.track} track)');
+      _logger.success('  Build live on Google Play (${_androidConfig.track} track)');
     } finally {
       client.close();
     }
@@ -128,8 +120,6 @@ class GooglePlayService {
     );
   }
 
-  /// Verifies the service account can authenticate with Google Play.
-  /// Throws [GooglePlayException] if auth fails.
   Future<void> verifyCredentials() async {
     try {
       final client = await _buildAuthClient();
@@ -137,45 +127,18 @@ class GooglePlayService {
     } catch (e) {
       throw GooglePlayException(
         'Failed to authenticate with Google Play: $e\n'
-        'Check your service account JSON file path and permissions.',
+        'Check service account JSON file path and permissions in Google Play Console.',
       );
     }
   }
 
-  /// Returns all package names accessible to this service account.
-  /// Note: the Play Developer API does not have a "list all apps" endpoint,
-  /// so this attempts a lightweight call for the configured package name.
-  /// Returns the package name if accessible, empty list otherwise.
-  Future<List<String>> fetchAccessiblePackages(List<String> candidatePackages) async {
-    final client = await _buildAuthClient();
-    final publisherApi = AndroidPublisherApi(client);
-    final accessible = <String>[];
-
-    try {
-      for (final pkg in candidatePackages) {
-        try {
-          // A lightweight call to check access: list tracks
-          await publisherApi.edits.insert(AppEdit(), pkg);
-          accessible.add(pkg);
-        } catch (_) {
-          // Not accessible — skip
-        }
-      }
-    } finally {
-      client.close();
-    }
-
-    return accessible;
-  }
-
   Future<AuthClient> _buildAuthClient() async {
-
     final serviceAccountPath = _androidConfig.resolvedServiceAccountPath;
 
     if (!File(serviceAccountPath).existsSync()) {
       throw GooglePlayException(
         'Google Play service account file not found: $serviceAccountPath\n'
-        'Create one in Google Play Console → Setup → API access',
+        'Configure service account in Google Play Console -> Setup -> API access',
       );
     }
 
@@ -189,16 +152,12 @@ class GooglePlayService {
     );
   }
 
-  /// Maps track name to the appropriate release status.
   String _releaseStatus(String track) {
     switch (track) {
       case 'internal':
       case 'alpha':
-        return 'completed'; // Internal/alpha are immediately available
       case 'beta':
-        return 'completed';
       case 'production':
-        return 'completed'; // Could be 'draft' for staged rollouts
       default:
         return 'completed';
     }

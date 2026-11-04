@@ -16,8 +16,8 @@ Thanks for your interest in contributing to FlightDeck! This guide covers how to
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/flightdeck.git
-cd flightdeck
+git clone https://github.com/AbdLim/flightdeck-cli.git
+cd flightdeck-cli
 
 # Install dependencies
 dart pub get
@@ -31,7 +31,7 @@ dart run bin/flightdeck.dart deploy --help
 
 ## Code Structure
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture. Key entry points:
+Key entry points across the codebase:
 
 | File | Purpose |
 |------|---------|
@@ -82,7 +82,6 @@ class DoctorCommand extends Command<int> {
 2. Parse it in the `fromYaml()` factory
 3. Add a `resolved*` getter if the field can also be set via an environment variable
 4. Update `flightdeck.yaml.example` with the new field (commented out if optional)
-5. Update [CONFIGURATION.md](CONFIGURATION.md)
 
 ---
 
@@ -99,7 +98,7 @@ dart test test/config_test.dart
 dart test --reporter expanded
 ```
 
-Tests live in `test/`. Use `mockito` (already a dev dependency) to mock services and processes.
+Tests live in `test/`. Run tests with `dart test`.
 
 **Test naming convention:**
 

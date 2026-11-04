@@ -2,13 +2,6 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 
-/// Manages FlightDeck secrets and environment variables.
-///
-/// Usage:
-///   flightdeck env set KEY value
-///   flightdeck env get KEY
-///   flightdeck env list
-///   flightdeck env check    # check all required vars are set
 class EnvCommand extends Command<int> {
   @override
   final String name = 'env';
@@ -32,13 +25,10 @@ class EnvCommand extends Command<int> {
   }
 }
 
-/// All environment variables FlightDeck recognises.
 const _knownVars = {
-  // iOS / App Store Connect
   'APP_STORE_API_KEY_ID': 'App Store Connect API Key ID',
   'APP_STORE_API_ISSUER_ID': 'App Store Connect Issuer ID',
   'APP_STORE_API_KEY_PATH': 'Path to .p8 API key file',
-  // Android / Google Play
   'GOOGLE_PLAY_SERVICE_ACCOUNT': 'Path to Google Play service account JSON',
   'ANDROID_KEYSTORE_PASSWORD': 'Android keystore password',
   'ANDROID_KEY_PASSWORD': 'Android key password',
@@ -49,7 +39,7 @@ class _EnvSetSubcommand extends Command<int> {
   final String name = 'set';
 
   @override
-  final String description = 'Set an environment variable in .env file.';
+  final String description = 'Set an environment variable in the .env file.';
 
   final Logger _logger;
 
@@ -77,7 +67,6 @@ class _EnvSetSubcommand extends Command<int> {
     final envFile = File('.env');
     final lines = envFile.existsSync() ? envFile.readAsLinesSync() : <String>[];
 
-    // Update existing or append
     final existing = lines.indexWhere((l) => l.startsWith('$key='));
     if (existing >= 0) {
       lines[existing] = '$key=$value';
@@ -85,13 +74,12 @@ class _EnvSetSubcommand extends Command<int> {
       lines.add('$key=$value');
     }
 
-    envFile.writeAsStringSync(lines.join('\n') + '\n');
-    _logger.success('✓ Set $key in .env');
+    envFile.writeAsStringSync('${lines.join('\n')}\n');
+    _logger.success('Set $key in .env');
 
-    // Remind about .gitignore
     final gitignore = File('.gitignore');
     if (gitignore.existsSync() && !gitignore.readAsStringSync().contains('.env')) {
-      _logger.warn('⚠️  Add .env to your .gitignore to avoid committing secrets!');
+      _logger.warn('Warning: Add .env to .gitignore to avoid committing secrets.');
     }
 
     return 0;
@@ -128,7 +116,6 @@ class _EnvGetSubcommand extends Command<int> {
       return 1;
     }
 
-    // Mask sensitive values
     final masked = value.length > 4
         ? '${'*' * (value.length - 4)}${value.substring(value.length - 4)}'
         : '****';
@@ -141,7 +128,7 @@ class _EnvGetSubcommand extends Command<int> {
     if (!envFile.existsSync()) return null;
     for (final line in envFile.readAsLinesSync()) {
       if (line.startsWith('$key=')) {
-        return line.substring(key.length + 1);
+        return line.substring(key.length + 1).trim();
       }
     }
     return null;
@@ -161,31 +148,34 @@ class _EnvListSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\n🔑 FlightDeck Environment Variables\n');
+    _logger.info('\nFlightDeck Environment Variables\n');
 
-    final envContent = File('.env').existsSync()
-        ? Map.fromEntries(
-            File('.env').readAsLinesSync()
-              .where((l) => l.contains('=') && !l.startsWith('#'))
-              .map((l) {
-                final idx = l.indexOf('=');
-                return MapEntry(l.substring(0, idx), l.substring(idx + 1));
-              }),
-          )
-        : <String, String>{};
+    final envContent = _readEnvMap();
 
     for (final entry in _knownVars.entries) {
       final key = entry.key;
       final desc = entry.value;
       final value = Platform.environment[key] ?? envContent[key];
       final isSet = value != null && value.isNotEmpty;
-      final status = isSet ? '✓ set' : '✗ not set';
-      _logger.info('  ${isSet ? "✓" : "✗"} $key');
-      _logger.info('    $desc — $status');
+      final status = isSet ? 'set' : 'not set';
+      _logger.info('  ${isSet ? "✓" : "-"} $key: $desc ($status)');
     }
 
     _logger.info('');
     return 0;
+  }
+
+  Map<String, String> _readEnvMap() {
+    final file = File('.env');
+    if (!file.existsSync()) return {};
+    return Map.fromEntries(
+      file.readAsLinesSync()
+          .where((l) => l.contains('=') && !l.trim().startsWith('#'))
+          .map((l) {
+            final idx = l.indexOf('=');
+            return MapEntry(l.substring(0, idx).trim(), l.substring(idx + 1).trim());
+          }),
+    );
   }
 }
 
@@ -202,18 +192,9 @@ class _EnvCheckSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\n🔍 Checking FlightDeck environment...\n');
+    _logger.info('\nChecking FlightDeck environment variables...\n');
 
-    final envContent = File('.env').existsSync()
-        ? Map.fromEntries(
-            File('.env').readAsLinesSync()
-              .where((l) => l.contains('=') && !l.startsWith('#'))
-              .map((l) {
-                final idx = l.indexOf('=');
-                return MapEntry(l.substring(0, idx), l.substring(idx + 1));
-              }),
-          )
-        : <String, String>{};
+    final envContent = _readEnvMap();
 
     var allGood = true;
     for (final entry in _knownVars.entries) {
@@ -230,11 +211,24 @@ class _EnvCheckSubcommand extends Command<int> {
 
     _logger.info('');
     if (allGood) {
-      _logger.success('✔ All environment variables are configured.\n');
+      _logger.success('All environment variables are configured.\n');
     } else {
       _logger.warn('Some variables are missing. Run: flightdeck env set KEY VALUE\n');
     }
 
     return allGood ? 0 : 1;
+  }
+
+  Map<String, String> _readEnvMap() {
+    final file = File('.env');
+    if (!file.existsSync()) return {};
+    return Map.fromEntries(
+      file.readAsLinesSync()
+          .where((l) => l.contains('=') && !l.trim().startsWith('#'))
+          .map((l) {
+            final idx = l.indexOf('=');
+            return MapEntry(l.substring(0, idx).trim(), l.substring(idx + 1).trim());
+          }),
+    );
   }
 }

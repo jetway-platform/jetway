@@ -1,16 +1,15 @@
 import 'dart:io';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as path;
+
 import '../models/config.dart';
 
-/// Handles running Flutter build commands and locating output artifacts.
 class FlutterBuildService {
   final Logger _logger;
   final bool verbose;
 
   FlutterBuildService(this._logger, {this.verbose = false});
 
-  /// Runs `flutter build ipa` and returns the path to the built .ipa or .xcarchive.
   Future<String> buildIos({
     required FlightDeckConfig config,
     String? buildNumber,
@@ -28,11 +27,10 @@ class FlutterBuildService {
     await _runFlutter(args, 'iOS build');
 
     final ipaPath = findIosArtifact();
-    _logger.success('  ✓ IPA built: ${path.basename(ipaPath)}');
+    _logger.success('  IPA built: ${path.basename(ipaPath)}');
     return ipaPath;
   }
 
-  /// Locates an existing pre-built IPA file in the project's build directory.
   String findIosArtifact() {
     final ipaDir = Directory(path.join(Directory.current.path, 'build', 'ios', 'ipa'));
     if (!ipaDir.existsSync()) {
@@ -56,7 +54,6 @@ class FlutterBuildService {
     return ipaFiles.first.path;
   }
 
-  /// Runs `flutter build appbundle` or `flutter build apk` and returns the artifact path.
   Future<String> buildAndroid({
     required FlightDeckConfig config,
     String? buildNumber,
@@ -74,11 +71,10 @@ class FlutterBuildService {
     await _runFlutter(args, 'Android build');
 
     final artifactPath = findAndroidArtifact(config);
-    _logger.success('  ✓ ${isAab ? 'AAB' : 'APK'} built: ${path.basename(artifactPath)}');
+    _logger.success('  ${isAab ? 'AAB' : 'APK'} built: ${path.basename(artifactPath)}');
     return artifactPath;
   }
 
-  /// Locates an existing pre-built Android artifact (AAB or APK).
   String findAndroidArtifact(FlightDeckConfig config) {
     final isAab = config.android!.artifact == 'aab';
     final standardPath = isAab
@@ -95,7 +91,6 @@ class FlutterBuildService {
       return standardPath;
     }
 
-    // Fallback: search directory for any artifact matching the extension
     final candidateDir = Directory(path.dirname(standardPath));
     if (candidateDir.existsSync()) {
       final ext = isAab ? '.aab' : '.apk';
@@ -115,19 +110,17 @@ class FlutterBuildService {
     );
   }
 
-  /// Runs `flutter pub get` to ensure dependencies are up to date.
   Future<void> pubGet() async {
     _logger.info('  Running flutter pub get...');
     await _runFlutter(['pub', 'get'], 'pub get');
-    _logger.success('  ✓ Dependencies resolved');
+    _logger.success('  Dependencies resolved.');
   }
 
-  /// Verifies flutter is installed and the project is valid.
   Future<void> validate() async {
     final result = await Process.run('flutter', ['--version']);
     if (result.exitCode != 0) {
       throw FlightDeckBuildException(
-        'Flutter not found. Install Flutter: https://flutter.dev/docs/get-started/install',
+        'Flutter not found on PATH. Install Flutter: https://flutter.dev/docs/get-started/install',
       );
     }
 
@@ -150,14 +143,11 @@ class FlutterBuildService {
     );
 
     if (verbose) {
-      // Stream output in verbose mode
       process.stdout.listen((data) => _logger.detail(String.fromCharCodes(data)));
       process.stderr.listen((data) => _logger.detail(String.fromCharCodes(data)));
     } else {
-      // Suppress in normal mode but capture stderr for error reporting
       final errors = StringBuffer();
       process.stderr.listen((data) => errors.write(String.fromCharCodes(data)));
-      await process.exitCode; // Wait for completion in non-verbose mode
       final code = await process.exitCode;
       if (code != 0) {
         throw FlightDeckBuildException(

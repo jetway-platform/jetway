@@ -1,6 +1,6 @@
 # flightdeck.yaml — Flutter deployment config
 # Run `flightdeck init` to generate this interactively.
-# Docs: https://github.com/yourusername/flightdeck
+# Docs: https://github.com/AbdLim/flightdeck-cli
 
 app:
   name: "My Flutter App"

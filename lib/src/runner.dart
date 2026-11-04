@@ -15,7 +15,7 @@ class FlightDeckRunner {
   Future<int> run(List<String> args) async {
     final runner = CommandRunner<int>(
       'flightdeck',
-      '🛫  Deploy Flutter apps to App Store & Google Play — one command.',
+      'Deploy Flutter apps to App Store & Google Play — one command.',
     )
       ..addCommand(InitCommand(_logger))
       ..addCommand(SetupCommand(_logger))
@@ -24,7 +24,6 @@ class FlightDeckRunner {
       ..addCommand(CertsCommand(_logger))
       ..addCommand(EnvCommand(_logger));
 
-    // Add global flags
     runner.argParser
       ..addFlag(
         'verbose',
@@ -45,7 +44,6 @@ class FlightDeckRunner {
       }
 
       if (args.isEmpty) {
-        _printBanner();
         _logger.info(runner.usage);
         return 0;
       }
@@ -55,24 +53,10 @@ class FlightDeckRunner {
       _logger
         ..err(e.message)
         ..info(e.usage);
-      return 64; // EX_USAGE
+      return 64;
     } catch (e) {
       _logger.err('Unexpected error: $e');
       return 1;
     }
-  }
-
-  void _printBanner() {
-    _logger.info('''
-
-  ██████╗ ██╗     ██╗ ██████╗ ██╗  ██╗████████╗██████╗ ███████╗ ██████╗██╗  ██╗
-  ██╔════╝ ██║    ██║██╔════╝ ██║  ██║╚══██╔══╝██╔══██╗██╔════╝██╔════╝██║ ██╔╝
-  █████╗   ██║    ██║██║  ███╗███████║   ██║   ██║  ██║█████╗  ██║     █████╔╝ 
-  ██╔══╝   ██║    ██║██║   ██║██╔══██║   ██║   ██║  ██║██╔══╝  ██║     ██╔═██╗ 
-  ██║      ███████╗██║╚██████╔╝██║  ██║   ██║   ██████╔╝███████╗╚██████╗██║  ██╗
-  ╚═╝      ╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝
-
-  Deploy Flutter apps to App Store & Google Play — one command.
-''');
   }
 }

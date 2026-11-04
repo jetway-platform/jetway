@@ -1,25 +1,17 @@
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
+
 import '../models/config.dart';
-import '../services/flutter_build_service.dart';
 import '../services/app_store_connect_service.dart';
+import '../services/flutter_build_service.dart';
 import '../services/google_play_service.dart';
 
-/// The main deploy command. Builds and submits to App Store and/or Google Play.
-///
-/// Usage:
-///   flightdeck deploy                    # deploys to both platforms
-///   flightdeck deploy --platform ios
-///   flightdeck deploy --platform android
-///   flightdeck deploy --track beta
-///   flightdeck deploy --build-number 42
-///   flightdeck deploy --skip-build       # upload pre-built artifacts
 class DeployCommand extends Command<int> {
   @override
   final String name = 'deploy';
 
   @override
-  final String description = 'Build and deploy your Flutter app to App Store and/or Google Play.';
+  final String description = 'Build and deploy Flutter app to App Store and/or Google Play.';
 
   final Logger _logger;
 
@@ -35,37 +27,37 @@ class DeployCommand extends Command<int> {
       ..addOption(
         'track',
         abbr: 't',
-        help: 'Deployment track. Overrides flightdeck.yaml track.',
+        help: 'Deployment track (overrides flightdeck.yaml).',
         allowed: ['internal', 'alpha', 'beta', 'production'],
       )
       ..addOption(
         'build-number',
         abbr: 'b',
-        help: 'Build number. Overrides pubspec.yaml build number.',
+        help: 'Build number override.',
       )
       ..addOption(
         'release-notes',
-        help: 'Release notes for this build.',
+        help: 'Release notes string for this build.',
       )
       ..addFlag(
         'skip-build',
-        help: 'Skip building — upload previously built artifacts.',
+        help: 'Upload pre-built artifacts without running build step.',
         negatable: false,
       )
       ..addFlag(
         'skip-validate',
-        help: 'Skip IPA validation step (iOS only).',
+        help: 'Skip IPA validation step on iOS.',
         negatable: false,
       )
       ..addFlag(
         'verbose',
         abbr: 'v',
-        help: 'Show full build output.',
+        help: 'Show verbose build and process output.',
         negatable: false,
       )
       ..addOption(
         'config',
-        help: 'Path to flightdeck.yaml. Defaults to ./flightdeck.yaml.',
+        help: 'Path to flightdeck.yaml (defaults to ./flightdeck.yaml).',
       );
   }
 
@@ -79,7 +71,6 @@ class DeployCommand extends Command<int> {
     final verbose = argResults!['verbose'] as bool;
     final configPath = argResults!['config'] as String?;
 
-    // Load and validate config
     final FlightDeckConfig config;
     try {
       config = FlightDeckConfig.fromFile(configPath);
@@ -94,7 +85,6 @@ class DeployCommand extends Command<int> {
     final stopwatch = Stopwatch()..start();
 
     try {
-      // --- BUILD PHASE ---
       String? ipaPath;
       String? androidArtifactPath;
 
@@ -105,33 +95,32 @@ class DeployCommand extends Command<int> {
         _logger.info('');
 
         if (platform == DeployPlatform.ios || platform == DeployPlatform.all) {
-          _logger.info('📦 Building iOS...');
+          _logger.info('Building iOS release...');
           ipaPath = await buildService.buildIos(config: config, buildNumber: buildNumber);
           _logger.info('');
         }
 
         if (platform == DeployPlatform.android || platform == DeployPlatform.all) {
-          _logger.info('📦 Building Android...');
+          _logger.info('Building Android release...');
           androidArtifactPath = await buildService.buildAndroid(config: config, buildNumber: buildNumber);
           _logger.info('');
         }
       } else {
-        _logger.info('⏩ Skipping build step (--skip-build). Locating pre-built artifacts...');
+        _logger.info('Skipping build step. Locating existing artifacts...');
         final buildService = FlutterBuildService(_logger, verbose: verbose);
 
         if (platform == DeployPlatform.ios || platform == DeployPlatform.all) {
           ipaPath = buildService.findIosArtifact();
-          _logger.info('  ✓ Found iOS artifact: $ipaPath');
+          _logger.info('  Found iOS artifact: $ipaPath');
         }
 
         if (platform == DeployPlatform.android || platform == DeployPlatform.all) {
           androidArtifactPath = buildService.findAndroidArtifact(config);
-          _logger.info('  ✓ Found Android artifact: $androidArtifactPath');
+          _logger.info('  Found Android artifact: $androidArtifactPath');
         }
         _logger.info('');
       }
 
-      // --- UPLOAD PHASE ---
       String? testflightUrl;
       String? playConsoleUrl;
 
@@ -140,7 +129,7 @@ class DeployCommand extends Command<int> {
           throw FlightDeckBuildException('No iOS IPA found for upload.');
         }
 
-        _logger.info('🍎 Uploading to App Store Connect...');
+        _logger.info('Uploading to App Store Connect...');
 
         final ascService = AppStoreConnectService(_logger, config.ios!);
 
@@ -154,7 +143,6 @@ class DeployCommand extends Command<int> {
           verbose: verbose,
         );
 
-        // Add to TestFlight group if configured
         if (config.ios!.testflightGroup != null) {
           final appId = await ascService.getAppId(config.app.bundleId);
           if (appId != null) {
@@ -178,7 +166,7 @@ class DeployCommand extends Command<int> {
           throw FlightDeckBuildException('No Android artifact found for upload.');
         }
 
-        _logger.info('🤖 Uploading to Google Play...');
+        _logger.info('Uploading to Google Play...');
 
         final playService = GooglePlayService(
           _logger,
@@ -196,7 +184,6 @@ class DeployCommand extends Command<int> {
         _logger.info('');
       }
 
-      // --- SUMMARY ---
       stopwatch.stop();
       _printSummary(
         duration: stopwatch.elapsed,
@@ -206,28 +193,24 @@ class DeployCommand extends Command<int> {
 
       return 0;
     } on FlightDeckBuildException catch (e) {
-      _logger.err('\n✗ Build failed:\n${e.message}');
+      _logger.err('\nBuild failed: ${e.message}');
       return 1;
     } on Exception catch (e) {
-      _logger.err('\n✗ Deploy failed:\n$e');
+      _logger.err('\nDeploy failed: $e');
       return 1;
     }
   }
 
   void _printHeader(FlightDeckConfig config, DeployPlatform platform) {
     final platformStr = switch (platform) {
-      DeployPlatform.ios => 'iOS only',
-      DeployPlatform.android => 'Android only',
+      DeployPlatform.ios => 'iOS',
+      DeployPlatform.android => 'Android',
       DeployPlatform.all => 'iOS + Android',
     };
 
-    _logger.info('');
-    _logger.info('🛫  FlightDeck Deploy');
-    _logger.info('   App:      ${config.app.name}');
-    _logger.info('   Platform: $platformStr');
-    _logger.info('');
-    _logger.info('─' * 48);
-    _logger.info('');
+    _logger.info('\nFlightDeck Deploy');
+    _logger.info('  App:      ${config.app.name}');
+    _logger.info('  Platform: $platformStr\n');
   }
 
   void _printSummary({
@@ -240,16 +223,14 @@ class DeployCommand extends Command<int> {
         ? '${duration.inMinutes}m ${seconds % 60}s'
         : '${seconds}s';
 
-    _logger.info('─' * 48);
     _logger.info('');
-    _logger.success('✔ Deploy complete · $timeStr');
-    _logger.info('');
+    _logger.success('Deploy complete ($timeStr)\n');
 
     if (testflightUrl != null) {
-      _logger.info('  🍎 App Store Connect: $testflightUrl');
+      _logger.info('  App Store Connect: $testflightUrl');
     }
     if (playConsoleUrl != null) {
-      _logger.info('  🤖 Play Console:      $playConsoleUrl');
+      _logger.info('  Google Play:       $playConsoleUrl');
     }
     _logger.info('');
   }

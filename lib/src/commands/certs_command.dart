@@ -1,14 +1,10 @@
 import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
-import '../models/config.dart';
 
-/// Manages Apple certificates and provisioning profiles.
-///
-/// Usage:
-///   flightdeck certs sync     # download/refresh certs from Apple
-///   flightdeck certs check    # check current cert status
-///   flightdeck certs list     # list available profiles
+import '../models/config.dart';
+import '../services/app_store_connect_service.dart';
+
 class CertsCommand extends Command<int> {
   @override
   final String name = 'certs';
@@ -36,7 +32,7 @@ class _CertsSyncSubcommand extends Command<int> {
   final String name = 'sync';
 
   @override
-  final String description = 'Download and install the latest Apple certificates and provisioning profiles.';
+  final String description = 'Verify signing credentials and refresh Xcode provisioning cache.';
 
   final Logger _logger;
 
@@ -44,7 +40,12 @@ class _CertsSyncSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\n🔐 FlightDeck Certs Sync\n');
+    if (!Platform.isMacOS) {
+      _logger.err('certs command is only supported on macOS.');
+      return 1;
+    }
+
+    _logger.info('\nFlightDeck Certs Sync\n');
 
     final FlightDeckConfig config;
     try {
@@ -60,24 +61,13 @@ class _CertsSyncSubcommand extends Command<int> {
     }
 
     try {
-      // Step 1: Use xcrun to download provisioning profiles via Apple API
-      _logger.info('  Fetching provisioning profiles from Apple...');
-      final profilesResult = await _runXcrun([
-        'altool',
-        '--list-provisioning-profiles',
-        '--apiKey', config.ios!.resolvedApiKeyId,
-        '--apiIssuer', config.ios!.resolvedApiIssuerId,
-      ]);
+      _logger.info('  Verifying App Store Connect API credentials...');
+      final asc = AppStoreConnectService(_logger, config.ios!);
+      await asc.verifyCredentials();
+      _logger.success('  App Store Connect credentials verified.');
 
-      if (profilesResult.exitCode != 0) {
-        throw Exception('Failed to fetch profiles: ${profilesResult.stderr}');
-      }
-
-      _logger.success('  ✓ Provisioning profiles fetched');
-
-      // Step 2: Check for expired certificates in the keychain
       _logger.info('  Checking certificates in keychain...');
-      final certResult = await _runProcess('security', [
+      final certResult = await Process.run('security', [
         'find-identity',
         '-v',
         '-p', 'codesigning',
@@ -85,14 +75,13 @@ class _CertsSyncSubcommand extends Command<int> {
 
       final certOutput = certResult.stdout as String;
       final certCount = RegExp(r'valid identities found').hasMatch(certOutput)
-          ? certOutput.split('\n').where((l) => l.contains('iPhone Distribution')).length
+          ? certOutput.split('\n').where((l) => l.contains('iPhone Distribution') || l.contains('Apple Distribution')).length
           : 0;
 
-      _logger.success('  ✓ Found $certCount valid distribution certificate(s)');
+      _logger.success('  Found $certCount distribution certificate(s).');
 
-      // Step 3: Refresh Xcode's automatic signing if needed
-      _logger.info('  Refreshing Xcode provisioning profile cache...');
-      await _runProcess('defaults', [
+      _logger.info('  Refreshing Xcode provisioning cache...');
+      await Process.run('defaults', [
         'write',
         'com.apple.dt.Xcode',
         'IDEProvisioningTeamManagerLastCheckedDate',
@@ -100,19 +89,13 @@ class _CertsSyncSubcommand extends Command<int> {
       ]);
 
       _logger.info('');
-      _logger.success('✔ Certificates synced successfully\n');
+      _logger.success('Certificates synced successfully.\n');
       return 0;
     } catch (e) {
       _logger.err('Cert sync failed: $e');
       return 1;
     }
   }
-
-  Future<ProcessResult> _runXcrun(List<String> args) =>
-      Process.run('xcrun', args);
-
-  Future<ProcessResult> _runProcess(String exe, List<String> args) =>
-      Process.run(exe, args);
 }
 
 class _CertsCheckSubcommand extends Command<int> {
@@ -120,7 +103,7 @@ class _CertsCheckSubcommand extends Command<int> {
   final String name = 'check';
 
   @override
-  final String description = 'Check status of installed certificates and provisioning profiles.';
+  final String description = 'Check installed code signing identities in the macOS keychain.';
 
   final Logger _logger;
 
@@ -128,9 +111,13 @@ class _CertsCheckSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\n🔐 Certificate Status\n');
+    if (!Platform.isMacOS) {
+      _logger.err('certs check is only supported on macOS.');
+      return 1;
+    }
 
-    // List valid signing identities from keychain
+    _logger.info('\nCertificate Status\n');
+
     final result = await Process.run('security', [
       'find-identity',
       '-v',
@@ -144,15 +131,11 @@ class _CertsCheckSubcommand extends Command<int> {
 
     if (lines.isEmpty) {
       _logger.warn('  No valid code signing identities found in keychain.');
-      _logger.info('  Run: flightdeck certs sync');
       return 1;
     }
 
     for (final line in lines) {
-      final isDistribution = line.contains('iPhone Distribution') || line.contains('Apple Distribution');
-      final icon = isDistribution ? '✓' : '○';
-      final color = isDistribution ? '  $icon ' : '  $icon ';
-      _logger.info('$color${line.trim()}');
+      _logger.info('  ${line.trim()}');
     }
 
     _logger.info('');
@@ -165,7 +148,7 @@ class _CertsListSubcommand extends Command<int> {
   final String name = 'list';
 
   @override
-  final String description = 'List available provisioning profiles.';
+  final String description = 'List installed provisioning profiles.';
 
   final Logger _logger;
 
@@ -173,16 +156,19 @@ class _CertsListSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\n📋 Provisioning Profiles\n');
+    if (!Platform.isMacOS) {
+      _logger.err('certs list is only supported on macOS.');
+      return 1;
+    }
 
-    // Provisioning profiles are stored in ~/Library/MobileDevice/Provisioning Profiles/
+    _logger.info('\nProvisioning Profiles\n');
+
     final profilesDir = Directory(
       '${Platform.environment['HOME']}/Library/MobileDevice/Provisioning Profiles',
     );
 
     if (!profilesDir.existsSync()) {
       _logger.warn('  No provisioning profiles directory found.');
-      _logger.info('  Run: flightdeck certs sync');
       return 1;
     }
 
@@ -194,12 +180,10 @@ class _CertsListSubcommand extends Command<int> {
 
     if (profiles.isEmpty) {
       _logger.warn('  No provisioning profiles installed.');
-      _logger.info('  Run: flightdeck certs sync');
       return 1;
     }
 
     for (final profile in profiles) {
-      // Read profile metadata using security command
       final result = await Process.run('security', [
         'cms',
         '-D',

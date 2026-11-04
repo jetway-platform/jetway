@@ -1,8 +1,7 @@
 import 'dart:io';
-import 'package:yaml/yaml.dart';
 import 'package:path/path.dart' as path;
+import 'package:yaml/yaml.dart';
 
-/// Represents a fully parsed and validated flightdeck.yaml config.
 class FlightDeckConfig {
   final AppConfig app;
   final IosConfig? ios;
@@ -14,7 +13,6 @@ class FlightDeckConfig {
     this.android,
   });
 
-  /// Loads config from [filePath], defaults to ./flightdeck.yaml
   factory FlightDeckConfig.fromFile([String? filePath]) {
     final configPath = filePath ?? path.join(Directory.current.path, 'flightdeck.yaml');
     final file = File(configPath);
@@ -43,7 +41,6 @@ class FlightDeckConfig {
     );
   }
 
-  /// Validates config is suitable for deploying to a given platform.
   void validateForPlatform(DeployPlatform platform) {
     switch (platform) {
       case DeployPlatform.ios:
@@ -65,9 +62,9 @@ class FlightDeckConfig {
 
 class AppConfig {
   final String name;
-  final String bundleId;     // iOS bundle identifier
-  final String packageName;  // Android package name
-  final String? version;     // Override pubspec.yaml version
+  final String bundleId;
+  final String packageName;
+  final String? version;
 
   const AppConfig({
     required this.name,
@@ -92,13 +89,13 @@ class AppConfig {
 
 class IosConfig {
   final String teamId;
-  final String profile;              // 'distribution' | 'adhoc' | 'development'
-  final String? testflightGroup;     // TestFlight group to add build to
-  final String? apiKeyId;            // App Store Connect API Key ID
-  final String? apiIssuerId;         // App Store Connect Issuer ID
-  final String? apiKeyPath;          // Path to .p8 key file
-  final String? exportOptionsPlist;  // Custom ExportOptions.plist path
-  final String? scheme;              // Xcode scheme (defaults to app name)
+  final String profile;
+  final String? testflightGroup;
+  final String? apiKeyId;
+  final String? apiIssuerId;
+  final String? apiKeyPath;
+  final String? exportOptionsPlist;
+  final String? scheme;
 
   const IosConfig({
     required this.teamId,
@@ -127,12 +124,10 @@ class IosConfig {
   }
 
   void validate() {
-    // API key auth (preferred) or will fall back to local Xcode credentials
     final hasApiAuth = apiKeyId != null && apiIssuerId != null && apiKeyPath != null;
-    final hasEnvApiAuth =
-        Platform.environment.containsKey('APP_STORE_API_KEY_ID') &&
-        Platform.environment.containsKey('APP_STORE_API_ISSUER_ID') &&
-        Platform.environment.containsKey('APP_STORE_API_KEY_PATH');
+    final hasEnvApiAuth = _lookupEnv('APP_STORE_API_KEY_ID') != null &&
+        _lookupEnv('APP_STORE_API_ISSUER_ID') != null &&
+        _lookupEnv('APP_STORE_API_KEY_PATH') != null;
 
     if (!hasApiAuth && !hasEnvApiAuth) {
       throw FlightDeckConfigException(
@@ -143,25 +138,24 @@ class IosConfig {
     }
   }
 
-  /// Resolved API Key ID (config > env var)
   String get resolvedApiKeyId =>
-      apiKeyId ?? Platform.environment['APP_STORE_API_KEY_ID'] ?? '';
+      apiKeyId ?? _lookupEnv('APP_STORE_API_KEY_ID') ?? '';
 
   String get resolvedApiIssuerId =>
-      apiIssuerId ?? Platform.environment['APP_STORE_API_ISSUER_ID'] ?? '';
+      apiIssuerId ?? _lookupEnv('APP_STORE_API_ISSUER_ID') ?? '';
 
   String get resolvedApiKeyPath =>
-      apiKeyPath ?? Platform.environment['APP_STORE_API_KEY_PATH'] ?? '';
+      apiKeyPath ?? _lookupEnv('APP_STORE_API_KEY_PATH') ?? '';
 }
 
 class AndroidConfig {
   final String keystorePath;
-  final String? keystorePassword;   // Can be set via env ANDROID_KEYSTORE_PASSWORD
+  final String? keystorePassword;
   final String? keyAlias;
-  final String? keyPassword;        // Can be set via env ANDROID_KEY_PASSWORD
-  final String track;               // 'internal' | 'alpha' | 'beta' | 'production'
-  final String artifact;            // 'aab' | 'apk'
-  final String? serviceAccountPath; // Google Play service account JSON
+  final String? keyPassword;
+  final String track;
+  final String artifact;
+  final String? serviceAccountPath;
 
   const AndroidConfig({
     required this.keystorePath,
@@ -210,7 +204,7 @@ class AndroidConfig {
     }
 
     final hasServiceAccount = serviceAccountPath != null ||
-        Platform.environment.containsKey('GOOGLE_PLAY_SERVICE_ACCOUNT');
+        _lookupEnv('GOOGLE_PLAY_SERVICE_ACCOUNT') != null;
     if (!hasServiceAccount) {
       throw FlightDeckConfigException(
         'Android deployment requires a Google Play service account.\n'
@@ -221,13 +215,13 @@ class AndroidConfig {
   }
 
   String get resolvedServiceAccountPath =>
-      serviceAccountPath ?? Platform.environment['GOOGLE_PLAY_SERVICE_ACCOUNT'] ?? '';
+      serviceAccountPath ?? _lookupEnv('GOOGLE_PLAY_SERVICE_ACCOUNT') ?? '';
 
   String get resolvedKeystorePassword =>
-      keystorePassword ?? Platform.environment['ANDROID_KEYSTORE_PASSWORD'] ?? '';
+      keystorePassword ?? _lookupEnv('ANDROID_KEYSTORE_PASSWORD') ?? '';
 
   String get resolvedKeyPassword =>
-      keyPassword ?? Platform.environment['ANDROID_KEY_PASSWORD'] ?? '';
+      keyPassword ?? _lookupEnv('ANDROID_KEY_PASSWORD') ?? '';
 }
 
 enum DeployPlatform { ios, android, all }
@@ -259,4 +253,31 @@ void _requireKey(YamlMap yaml, String key, String section) {
   if (!yaml.containsKey(key) || yaml[key] == null) {
     throw FlightDeckConfigException('Missing required "$section.$key" in flightdeck.yaml');
   }
+}
+
+String? _lookupEnv(String key) {
+  if (Platform.environment.containsKey(key)) {
+    return Platform.environment[key];
+  }
+
+  final envFile = File('.env');
+  if (envFile.existsSync()) {
+    for (final line in envFile.readAsLinesSync()) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+      final separatorIndex = trimmed.indexOf('=');
+      if (separatorIndex > 0) {
+        final k = trimmed.substring(0, separatorIndex).trim();
+        if (k == key) {
+          final v = trimmed.substring(separatorIndex + 1).trim();
+          if ((v.startsWith('"') && v.endsWith('"')) ||
+              (v.startsWith("'") && v.endsWith("'"))) {
+            return v.substring(1, v.length - 1);
+          }
+          return v;
+        }
+      }
+    }
+  }
+  return null;
 }

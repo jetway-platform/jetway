@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
+import 'package:http/http.dart' as http;
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as path;
+
 import '../models/config.dart';
 
-/// Interacts with the App Store Connect API to upload builds and manage TestFlight.
-/// API docs: https://developer.apple.com/documentation/appstoreconnectapi
 class AppStoreConnectService {
   static const _baseUrl = 'https://api.appstoreconnect.apple.com/v1';
 
@@ -19,8 +18,6 @@ class AppStoreConnectService {
     _jwt = _generateJwt();
   }
 
-  /// Generates a JWT for App Store Connect API authentication.
-  /// Apple requires ES256-signed JWTs that expire within 20 minutes.
   String _generateJwt() {
     final privateKeyPem = File(_iosConfig.resolvedApiKeyPath).readAsStringSync();
 
@@ -45,8 +42,6 @@ class AppStoreConnectService {
     'Content-Type': 'application/json',
   };
 
-  /// Uploads an IPA to App Store Connect via the altool-compatible upload approach.
-  /// Uses Apple's Transporter tool under the hood (installed with Xcode CLI tools).
   Future<void> uploadIpa({
     required String ipaPath,
     required String bundleId,
@@ -54,9 +49,6 @@ class AppStoreConnectService {
   }) async {
     _logger.info('  Uploading IPA to App Store Connect...');
 
-    // Apple's recommended approach: use xcrun altool or Transporter
-    // xcrun altool --upload-app is deprecated; use xcrun altool --validate-app then upload
-    // Or use Apple Transporter CLI. We use altool with API key auth.
     final result = await _runAltool([
       '--upload-app',
       '--type', 'ios',
@@ -72,10 +64,9 @@ class AppStoreConnectService {
       );
     }
 
-    _logger.success('  ✓ IPA uploaded to App Store Connect');
+    _logger.success('  IPA uploaded to App Store Connect.');
   }
 
-  /// Validates an IPA before uploading (catches signing/provisioning issues early).
   Future<void> validateIpa({required String ipaPath}) async {
     _logger.info('  Validating IPA...');
 
@@ -90,18 +81,13 @@ class AppStoreConnectService {
     if (result.exitCode != 0) {
       throw AppStoreConnectException(
         'IPA validation failed:\n${result.stderr}\n${result.stdout}\n\n'
-        'Common causes:\n'
-        '  - Invalid provisioning profile\n'
-        '  - Certificate mismatch\n'
-        '  - Missing entitlements\n'
-        'Run: flightdeck certs sync  to refresh your certificates.',
+        'Check your provisioning profiles, signing certificates, and entitlements.',
       );
     }
 
-    _logger.success('  ✓ IPA validation passed');
+    _logger.success('  IPA validation passed.');
   }
 
-  /// Looks up the App ID for a given bundle identifier.
   Future<String?> getAppId(String bundleId) async {
     final uri = Uri.parse('$_baseUrl/apps?filter[bundleId]=$bundleId');
     final response = await http.get(uri, headers: _headers);
@@ -115,20 +101,17 @@ class AppStoreConnectService {
     return apps.first['id'] as String;
   }
 
-  /// Helper to run Apple's stubborn altool which requires a specific directory and filename.
   Future<ProcessResult> _runAltool(List<String> args) async {
-    // altool natively expects the key to be named AuthKey_<ApiKeyId>.p8
-    // It automatically looks in the ./private_keys directory relative to where it's run.
     final privateKeysDir = Directory(path.join(Directory.current.path, 'private_keys'));
     final dirExisted = privateKeysDir.existsSync();
-    
+
     if (!dirExisted) {
       privateKeysDir.createSync(recursive: true);
     }
 
     final targetPath = path.join(privateKeysDir.path, 'AuthKey_${_iosConfig.resolvedApiKeyId}.p8');
     final targetFile = File(targetPath);
-    bool fileCopied = false;
+    var fileCopied = false;
 
     try {
       final sourceFile = File(_iosConfig.resolvedApiKeyPath);
@@ -137,16 +120,11 @@ class AppStoreConnectService {
         fileCopied = true;
       }
 
-      return await Process.run(
-        'xcrun',
-        ['altool', ...args],
-      );
+      return await Process.run('xcrun', ['altool', ...args]);
     } finally {
-      // Clean up the copied key
       if (fileCopied && targetFile.existsSync()) {
         targetFile.deleteSync();
       }
-      // Clean up the directory if we created it and it's now empty
       if (!dirExisted && privateKeysDir.existsSync()) {
         if (privateKeysDir.listSync().isEmpty) {
           privateKeysDir.deleteSync();
@@ -155,26 +133,24 @@ class AppStoreConnectService {
     }
   }
 
-  /// Adds the latest build to a TestFlight group.
   Future<void> addBuildToTestFlightGroup({
     required String appId,
     required String buildId,
     required String groupName,
   }) async {
-    // 1. Find the beta group
     final groupId = await _findBetaGroup(appId: appId, groupName: groupName);
     if (groupId == null) {
-      _logger.warn('  TestFlight group "$groupName" not found. Skipping group assignment.');
+      _logger.warn('  TestFlight group "$groupName" not found. Skipping assignment.');
       return;
     }
 
-    // 2. Add build to group (with polling for processing state)
     final uri = Uri.parse('$_baseUrl/betaGroups/$groupId/relationships/builds');
-    
     _logger.info('  Assigning build to group "$groupName"...');
 
     var attempt = 1;
-    while (true) {
+    const maxAttempts = 10;
+
+    while (attempt <= maxAttempts) {
       final response = await http.post(
         uri,
         headers: _headers,
@@ -183,30 +159,29 @@ class AppStoreConnectService {
         }),
       );
 
-      // If success, we're done
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _logger.success('  ✓ Build added to TestFlight group: $groupName');
-        break;
+        _logger.success('  Build added to TestFlight group: $groupName');
+        return;
       }
 
-      // If it's a 422 Processing error, Apple is still chewing on the IPA
       if (response.statusCode == 422 && response.body.contains('ENTITY_UNPROCESSABLE')) {
         if (attempt == 1) {
-          _logger.info('  ⏳ Apple is still processing the build. Waiting to assign...');
-          _logger.info('  (You can safely press Ctrl+C to cancel and assign it manually later in ASC)');
+          _logger.info('  Build is still processing in App Store Connect. Waiting to assign group...');
         }
-        
+        if (attempt == maxAttempts) {
+          _logger.warn('  Processing took too long. You can assign the group manually in App Store Connect.');
+          return;
+        }
+
         await Future.delayed(const Duration(seconds: 30));
         attempt++;
         continue;
       }
 
-      // Any other error
       _assertSuccess(response, 'adding build to TestFlight group');
     }
   }
 
-  /// Gets the latest build for an app.
   Future<Map<String, dynamic>?> getLatestBuild(String appId) async {
     final uri = Uri.parse('$_baseUrl/builds?filter[app]=$appId&sort=-uploadedDate&limit=1');
     final response = await http.get(uri, headers: _headers);
@@ -239,28 +214,23 @@ class AppStoreConnectService {
   void _assertSuccess(http.Response response, String action) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AppStoreConnectException(
-        'App Store Connect API error while $action '
-        '(${response.statusCode}): ${response.body}',
+        'App Store Connect API error while $action (${response.statusCode}): ${response.body}',
       );
     }
   }
 
-  /// Verifies credentials are valid by making a lightweight API call.
-  /// Throws [AppStoreConnectException] if auth fails.
   Future<void> verifyCredentials() async {
     final uri = Uri.parse('$_baseUrl/apps?limit=1');
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 401 || response.statusCode == 403) {
       throw AppStoreConnectException(
         'Invalid App Store Connect credentials (HTTP ${response.statusCode}).\n'
-        'Check your Key ID, Issuer ID, and that the .p8 file matches the Key ID.',
+        'Check Key ID, Issuer ID, and .p8 key file.',
       );
     }
     _assertSuccess(response, 'verifying credentials');
   }
 
-  /// Returns all apps accessible to this API key.
-  /// Each map has: id, bundleId, name.
   Future<List<Map<String, dynamic>>> fetchApps() async {
     final uri = Uri.parse('$_baseUrl/apps?limit=200&fields[apps]=name,bundleId');
     final response = await http.get(uri, headers: _headers);
@@ -278,7 +248,6 @@ class AppStoreConnectService {
     }).toList();
   }
 
-  /// Returns beta group names for the given app ID.
   Future<List<String>> fetchBetaGroupNames(String appId) async {
     final uri = Uri.parse('$_baseUrl/betaGroups?filter[app]=$appId&fields[betaGroups]=name&limit=100');
     final response = await http.get(uri, headers: _headers);
