@@ -45,18 +45,18 @@ class _CertsSyncSubcommand extends Command<int> {
       return 1;
     }
 
-    _logger.info('\nFlightDeck Certs Sync\n');
+    _logger.info('\nJetway Certs Sync\n');
 
-    final FlightDeckConfig config;
+    final JetwayConfig config;
     try {
-      config = FlightDeckConfig.fromFile();
-    } on FlightDeckConfigException catch (e) {
+      config = JetwayConfig.fromFile();
+    } on JetwayConfigException catch (e) {
       _logger.err(e.message);
       return 1;
     }
 
     if (config.ios == null) {
-      _logger.err('No iOS config found in flightdeck.yaml');
+      _logger.err('No iOS config found in jetway.yaml');
       return 1;
     }
 

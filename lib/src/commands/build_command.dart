@@ -41,15 +41,15 @@ class BuildCommand extends Command<int> {
     final buildNumber = argResults!['build-number'] as String?;
     final verbose = argResults!['verbose'] as bool;
 
-    final FlightDeckConfig config;
+    final JetwayConfig config;
     try {
-      config = FlightDeckConfig.fromFile();
-    } on FlightDeckConfigException catch (e) {
+      config = JetwayConfig.fromFile();
+    } on JetwayConfigException catch (e) {
       _logger.err(e.message);
       return 1;
     }
 
-    _logger.info('\nFlightDeck Build\n');
+    _logger.info('\nJetway Build\n');
 
     try {
       final buildService = FlutterBuildService(_logger, verbose: verbose);
@@ -71,7 +71,7 @@ class BuildCommand extends Command<int> {
 
       _logger.success('Build complete.\n');
       return 0;
-    } on FlightDeckBuildException catch (e) {
+    } on JetwayBuildException catch (e) {
       _logger.err('Build failed: ${e.message}');
       return 1;
     }

@@ -11,7 +11,7 @@ class FlutterBuildService {
   FlutterBuildService(this._logger, {this.verbose = false});
 
   Future<String> buildIos({
-    required FlightDeckConfig config,
+    required JetwayConfig config,
     String? buildNumber,
   }) async {
     _logger.info('  Building Flutter iOS release...');
@@ -34,7 +34,7 @@ class FlutterBuildService {
   String findIosArtifact() {
     final ipaDir = Directory(path.join(Directory.current.path, 'build', 'ios', 'ipa'));
     if (!ipaDir.existsSync()) {
-      throw FlightDeckBuildException(
+      throw JetwayBuildException(
         'iOS build directory not found at: ${ipaDir.path}',
       );
     }
@@ -46,7 +46,7 @@ class FlutterBuildService {
         .toList();
 
     if (ipaFiles.isEmpty) {
-      throw FlightDeckBuildException(
+      throw JetwayBuildException(
         'No .ipa file found in ${ipaDir.path}',
       );
     }
@@ -55,7 +55,7 @@ class FlutterBuildService {
   }
 
   Future<String> buildAndroid({
-    required FlightDeckConfig config,
+    required JetwayConfig config,
     String? buildNumber,
   }) async {
     final isAab = config.android!.artifact == 'aab';
@@ -75,7 +75,7 @@ class FlutterBuildService {
     return artifactPath;
   }
 
-  String findAndroidArtifact(FlightDeckConfig config) {
+  String findAndroidArtifact(JetwayConfig config) {
     final isAab = config.android!.artifact == 'aab';
     final standardPath = isAab
         ? path.join(
@@ -105,7 +105,7 @@ class FlutterBuildService {
       }
     }
 
-    throw FlightDeckBuildException(
+    throw JetwayBuildException(
       'Android ${isAab ? 'AAB' : 'APK'} artifact not found at: $standardPath',
     );
   }
@@ -119,13 +119,13 @@ class FlutterBuildService {
   Future<void> validate() async {
     final result = await Process.run('flutter', ['--version']);
     if (result.exitCode != 0) {
-      throw FlightDeckBuildException(
+      throw JetwayBuildException(
         'Flutter not found on PATH. Install Flutter: https://flutter.dev/docs/get-started/install',
       );
     }
 
     if (!File(path.join(Directory.current.path, 'pubspec.yaml')).existsSync()) {
-      throw FlightDeckBuildException(
+      throw JetwayBuildException(
         'Not a Flutter project directory (no pubspec.yaml found).',
       );
     }
@@ -150,7 +150,7 @@ class FlutterBuildService {
       process.stderr.listen((data) => errors.write(String.fromCharCodes(data)));
       final code = await process.exitCode;
       if (code != 0) {
-        throw FlightDeckBuildException(
+        throw JetwayBuildException(
           'Flutter $step failed (exit $code):\n${errors.toString().trim()}\n\n'
           'Run with --verbose for full output.',
         );
@@ -160,7 +160,7 @@ class FlutterBuildService {
 
     final exitCode = await process.exitCode;
     if (exitCode != 0) {
-      throw FlightDeckBuildException(
+      throw JetwayBuildException(
         'Flutter $step failed (exit $exitCode). Run with --verbose for details.',
       );
     }
@@ -180,9 +180,9 @@ class FlutterBuildService {
   }
 }
 
-class FlightDeckBuildException implements Exception {
+class JetwayBuildException implements Exception {
   final String message;
-  FlightDeckBuildException(this.message);
+  JetwayBuildException(this.message);
 
   @override
   String toString() => message;

@@ -8,13 +8,13 @@ import 'commands/build_command.dart';
 import 'commands/certs_command.dart';
 import 'commands/env_command.dart';
 
-class FlightDeckRunner {
+class JetwayRunner {
   static const version = '0.2.5';
   final Logger _logger = Logger();
 
   Future<int> run(List<String> args) async {
     final runner = CommandRunner<int>(
-      'flightdeck',
+      'jetway',
       'Deploy Flutter apps to App Store & Google Play — one command.',
     )
       ..addCommand(InitCommand(_logger))
@@ -39,7 +39,7 @@ class FlightDeckRunner {
 
     try {
       if (args.contains('--version')) {
-        _logger.info('flightdeck v$version');
+        _logger.info('jetway v$version');
         return 0;
       }
 

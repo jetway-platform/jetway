@@ -7,7 +7,7 @@ class EnvCommand extends Command<int> {
   final String name = 'env';
 
   @override
-  final String description = 'Manage FlightDeck environment variables and secrets.';
+  final String description = 'Manage Jetway environment variables and secrets.';
 
   final Logger _logger;
 
@@ -46,13 +46,13 @@ class _EnvSetSubcommand extends Command<int> {
   _EnvSetSubcommand(this._logger);
 
   @override
-  String get invocation => 'flightdeck env set KEY VALUE';
+  String get invocation => 'jetway env set KEY VALUE';
 
   @override
   Future<int> run() async {
     final rest = argResults!.rest;
     if (rest.length != 2) {
-      _logger.err('Usage: flightdeck env set KEY VALUE');
+      _logger.err('Usage: jetway env set KEY VALUE');
       return 64;
     }
 
@@ -98,13 +98,13 @@ class _EnvGetSubcommand extends Command<int> {
   _EnvGetSubcommand(this._logger);
 
   @override
-  String get invocation => 'flightdeck env get KEY';
+  String get invocation => 'jetway env get KEY';
 
   @override
   Future<int> run() async {
     final rest = argResults!.rest;
     if (rest.isEmpty) {
-      _logger.err('Usage: flightdeck env get KEY');
+      _logger.err('Usage: jetway env get KEY');
       return 64;
     }
 
@@ -140,7 +140,7 @@ class _EnvListSubcommand extends Command<int> {
   final String name = 'list';
 
   @override
-  final String description = 'List all FlightDeck environment variables and their status.';
+  final String description = 'List all Jetway environment variables and their status.';
 
   final Logger _logger;
 
@@ -148,7 +148,7 @@ class _EnvListSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\nFlightDeck Environment Variables\n');
+    _logger.info('\nJetway Environment Variables\n');
 
     final envContent = _readEnvMap();
 
@@ -192,7 +192,7 @@ class _EnvCheckSubcommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    _logger.info('\nChecking FlightDeck environment variables...\n');
+    _logger.info('\nChecking Jetway environment variables...\n');
 
     final envContent = _readEnvMap();
 
@@ -213,7 +213,7 @@ class _EnvCheckSubcommand extends Command<int> {
     if (allGood) {
       _logger.success('All environment variables are configured.\n');
     } else {
-      _logger.warn('Some variables are missing. Run: flightdeck env set KEY VALUE\n');
+      _logger.warn('Some variables are missing. Run: jetway env set KEY VALUE\n');
     }
 
     return allGood ? 0 : 1;

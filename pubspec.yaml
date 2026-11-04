@@ -1,7 +1,7 @@
-name: flightdeck
+name: jetway
 description: A CLI tool for Flutter developers to deploy apps to App Store and Google Play.
 version: 0.2.5
-repository: https://github.com/AbdLim/flightdeck-cli
+repository: https://github.com/AbdLim/jetway-cli
 
 environment:
     sdk: ">=3.0.0 <4.0.0"
@@ -21,4 +21,4 @@ dev_dependencies:
     test: ^1.24.0
 
 executables:
-    flightdeck: flightdeck
+    jetway: jetway

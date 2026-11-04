@@ -1,19 +1,19 @@
 import 'dart:io';
-import 'package:flightdeck/src/models/config.dart';
+import 'package:jetway/src/models/config.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('FlightDeckConfig', () {
-    test('throws FlightDeckConfigException when file does not exist', () {
+  group('JetwayConfig', () {
+    test('throws JetwayConfigException when file does not exist', () {
       expect(
-        () => FlightDeckConfig.fromFile('non_existent_flightdeck.yaml'),
-        throwsA(isA<FlightDeckConfigException>()),
+        () => JetwayConfig.fromFile('non_existent_jetway.yaml'),
+        throwsA(isA<JetwayConfigException>()),
       );
     });
 
     test('parses minimal valid config', () {
-      final tempDir = Directory.systemTemp.createTempSync('flightdeck_test_');
-      final configFile = File('${tempDir.path}/flightdeck.yaml');
+      final tempDir = Directory.systemTemp.createTempSync('jetway_test_');
+      final configFile = File('${tempDir.path}/jetway.yaml');
 
       configFile.writeAsStringSync('''
 app:
@@ -32,7 +32,7 @@ android:
   service_account: "./keys/service.json"
 ''');
 
-      final config = FlightDeckConfig.fromFile(configFile.path);
+      final config = JetwayConfig.fromFile(configFile.path);
 
       expect(config.app.name, equals('Sample App'));
       expect(config.app.bundleId, equals('com.example.sample'));
@@ -46,8 +46,8 @@ android:
     });
 
     test('validates platform requirements', () {
-      final tempDir = Directory.systemTemp.createTempSync('flightdeck_test_');
-      final configFile = File('${tempDir.path}/flightdeck.yaml');
+      final tempDir = Directory.systemTemp.createTempSync('jetway_test_');
+      final configFile = File('${tempDir.path}/jetway.yaml');
 
       configFile.writeAsStringSync('''
 app:
@@ -56,16 +56,16 @@ app:
   package_name: "com.example.sample"
 ''');
 
-      final config = FlightDeckConfig.fromFile(configFile.path);
+      final config = JetwayConfig.fromFile(configFile.path);
 
       expect(
         () => config.validateForPlatform(DeployPlatform.ios),
-        throwsA(isA<FlightDeckConfigException>()),
+        throwsA(isA<JetwayConfigException>()),
       );
 
       expect(
         () => config.validateForPlatform(DeployPlatform.android),
-        throwsA(isA<FlightDeckConfigException>()),
+        throwsA(isA<JetwayConfigException>()),
       );
 
       tempDir.deleteSync(recursive: true);
@@ -82,7 +82,7 @@ app:
     test('throws on unknown platform', () {
       expect(
         () => DeployPlatformParsing.fromString('web'),
-        throwsA(isA<FlightDeckConfigException>()),
+        throwsA(isA<JetwayConfigException>()),
       );
     });
   });

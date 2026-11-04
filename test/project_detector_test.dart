@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flightdeck/src/utils/project_detector.dart';
+import 'package:jetway/src/utils/project_detector.dart';
 import 'package:test/test.dart';
 
 void main() {

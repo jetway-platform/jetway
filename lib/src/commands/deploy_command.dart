@@ -27,7 +27,7 @@ class DeployCommand extends Command<int> {
       ..addOption(
         'track',
         abbr: 't',
-        help: 'Deployment track (overrides flightdeck.yaml).',
+        help: 'Deployment track (overrides config).',
         allowed: ['internal', 'alpha', 'beta', 'production'],
       )
       ..addOption(
@@ -57,7 +57,7 @@ class DeployCommand extends Command<int> {
       )
       ..addOption(
         'config',
-        help: 'Path to flightdeck.yaml (defaults to ./flightdeck.yaml).',
+        help: 'Path to jetway.yaml (defaults to ./jetway.yaml).',
       );
   }
 
@@ -71,11 +71,11 @@ class DeployCommand extends Command<int> {
     final verbose = argResults!['verbose'] as bool;
     final configPath = argResults!['config'] as String?;
 
-    final FlightDeckConfig config;
+    final JetwayConfig config;
     try {
-      config = FlightDeckConfig.fromFile(configPath);
+      config = JetwayConfig.fromFile(configPath);
       config.validateForPlatform(platform);
-    } on FlightDeckConfigException catch (e) {
+    } on JetwayConfigException catch (e) {
       _logger.err(e.message);
       return 1;
     }
@@ -126,7 +126,7 @@ class DeployCommand extends Command<int> {
 
       if (platform == DeployPlatform.ios || platform == DeployPlatform.all) {
         if (ipaPath == null) {
-          throw FlightDeckBuildException('No iOS IPA found for upload.');
+          throw JetwayBuildException('No iOS IPA found for upload.');
         }
 
         _logger.info('Uploading to App Store Connect...');
@@ -163,7 +163,7 @@ class DeployCommand extends Command<int> {
 
       if (platform == DeployPlatform.android || platform == DeployPlatform.all) {
         if (androidArtifactPath == null) {
-          throw FlightDeckBuildException('No Android artifact found for upload.');
+          throw JetwayBuildException('No Android artifact found for upload.');
         }
 
         _logger.info('Uploading to Google Play...');
@@ -192,7 +192,7 @@ class DeployCommand extends Command<int> {
       );
 
       return 0;
-    } on FlightDeckBuildException catch (e) {
+    } on JetwayBuildException catch (e) {
       _logger.err('\nBuild failed: ${e.message}');
       return 1;
     } on Exception catch (e) {
@@ -201,14 +201,14 @@ class DeployCommand extends Command<int> {
     }
   }
 
-  void _printHeader(FlightDeckConfig config, DeployPlatform platform) {
+  void _printHeader(JetwayConfig config, DeployPlatform platform) {
     final platformStr = switch (platform) {
       DeployPlatform.ios => 'iOS',
       DeployPlatform.android => 'Android',
       DeployPlatform.all => 'iOS + Android',
     };
 
-    _logger.info('\nFlightDeck Deploy');
+    _logger.info('\nJetway Deploy');
     _logger.info('  App:      ${config.app.name}');
     _logger.info('  Platform: $platformStr\n');
   }

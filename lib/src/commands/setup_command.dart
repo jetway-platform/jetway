@@ -42,21 +42,26 @@ class SetupCommand extends Command<int> {
       return 1;
     }
 
-    final configFile = File(path.join(Directory.current.path, 'flightdeck.yaml'));
+    final jetwayConfig = File(path.join(Directory.current.path, 'jetway.yaml'));
+    final fallbackFlightdeck = File(path.join(Directory.current.path, 'flightdeck.yaml'));
+    final configFile = jetwayConfig.existsSync()
+        ? jetwayConfig
+        : (fallbackFlightdeck.existsSync() ? fallbackFlightdeck : jetwayConfig);
+
     Map<String, dynamic> existing = {};
     if (configFile.existsSync()) {
       try {
         final yaml = loadYaml(configFile.readAsStringSync()) as YamlMap;
         existing = _yamlMapToDart(yaml);
       } catch (e) {
-        _logger.warn('Could not parse existing flightdeck.yaml: $e');
+        _logger.warn('Could not parse existing ${path.basename(configFile.path)}: $e');
       }
     } else {
-      _logger.warn('No flightdeck.yaml found. Run `flightdeck init` first.');
+      _logger.warn('No jetway.yaml found. Run `jetway init` first.');
       return 1;
     }
 
-    _logger.info('\nFlightDeck Setup — Refreshing Credentials\n');
+    _logger.info('\nJetway Setup — Refreshing Credentials\n');
 
     String? iosBlock;
     String? androidBlock;
@@ -82,12 +87,12 @@ class SetupCommand extends Command<int> {
     final androidSection = androidBlock ?? _rebuildSection(existing, 'android');
 
     configFile.writeAsStringSync(
-      '# flightdeck.yaml — Flutter deployment config\n\n'
+      '# jetway.yaml — Flutter deployment config\n\n'
       '$appSection$iosSection$androidSection',
     );
 
     _logger.info('');
-    _logger.success('flightdeck.yaml updated successfully.\n');
+    _logger.success('${path.basename(configFile.path)} updated successfully.\n');
     return 0;
   }
 
@@ -217,7 +222,7 @@ android:
   String _rebuildAppSection(Map<String, dynamic> existing) {
     final app = existing['app'] as Map? ?? {};
     final name = app['name'] ?? 'MyApp';
-    final bundleId = app['bundle_id'] ?? 'com.yourcompany.myapp';
+    final bundleId = app['bundle_id'] ?? 'com.example.myapp';
     final packageName = app['package_name'] ?? bundleId;
     return 'app:\n  name: "$name"\n  bundle_id: "$bundleId"\n  package_name: "$packageName"\n';
   }

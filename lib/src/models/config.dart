@@ -2,39 +2,52 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
 
-class FlightDeckConfig {
+class JetwayConfig {
   final AppConfig app;
   final IosConfig? ios;
   final AndroidConfig? android;
 
-  const FlightDeckConfig({
+  const JetwayConfig({
     required this.app,
     this.ios,
     this.android,
   });
 
-  factory FlightDeckConfig.fromFile([String? filePath]) {
-    final configPath = filePath ?? path.join(Directory.current.path, 'flightdeck.yaml');
-    final file = File(configPath);
+  factory JetwayConfig.fromFile([String? filePath]) {
+    String configPath;
+    if (filePath != null) {
+      configPath = filePath;
+    } else {
+      final defaultJetway = path.join(Directory.current.path, 'jetway.yaml');
+      final fallbackFlightdeck = path.join(Directory.current.path, 'flightdeck.yaml');
+      if (File(defaultJetway).existsSync()) {
+        configPath = defaultJetway;
+      } else if (File(fallbackFlightdeck).existsSync()) {
+        configPath = fallbackFlightdeck;
+      } else {
+        configPath = defaultJetway;
+      }
+    }
 
+    final file = File(configPath);
     if (!file.existsSync()) {
-      throw FlightDeckConfigException(
-        'No flightdeck.yaml found at $configPath\n'
-        'Run: flightdeck init',
+      throw JetwayConfigException(
+        'No jetway.yaml found at $configPath\n'
+        'Run: jetway init',
       );
     }
 
     final raw = loadYaml(file.readAsStringSync()) as YamlMap;
-    return FlightDeckConfig._fromYaml(raw);
+    return JetwayConfig._fromYaml(raw);
   }
 
-  factory FlightDeckConfig._fromYaml(YamlMap yaml) {
+  factory JetwayConfig._fromYaml(YamlMap yaml) {
     final appYaml = yaml['app'] as YamlMap?;
     if (appYaml == null) {
-      throw FlightDeckConfigException('Missing required "app" section in flightdeck.yaml');
+      throw JetwayConfigException('Missing required "app" section in config file');
     }
 
-    return FlightDeckConfig(
+    return JetwayConfig(
       app: AppConfig.fromYaml(appYaml),
       ios: yaml['ios'] != null ? IosConfig.fromYaml(yaml['ios'] as YamlMap) : null,
       android: yaml['android'] != null ? AndroidConfig.fromYaml(yaml['android'] as YamlMap) : null,
@@ -45,12 +58,12 @@ class FlightDeckConfig {
     switch (platform) {
       case DeployPlatform.ios:
         if (ios == null) {
-          throw FlightDeckConfigException('Missing "ios" section in flightdeck.yaml');
+          throw JetwayConfigException('Missing "ios" section in config file');
         }
         ios!.validate();
       case DeployPlatform.android:
         if (android == null) {
-          throw FlightDeckConfigException('Missing "android" section in flightdeck.yaml');
+          throw JetwayConfigException('Missing "android" section in config file');
         }
         android!.validate();
       case DeployPlatform.all:
@@ -130,9 +143,9 @@ class IosConfig {
         _lookupEnv('APP_STORE_API_KEY_PATH') != null;
 
     if (!hasApiAuth && !hasEnvApiAuth) {
-      throw FlightDeckConfigException(
+      throw JetwayConfigException(
         'iOS deployment requires App Store Connect API credentials.\n'
-        'Set api_key_id, api_issuer_id, api_key_path in flightdeck.yaml\n'
+        'Set api_key_id, api_issuer_id, api_key_path in jetway.yaml\n'
         'or set APP_STORE_API_KEY_ID, APP_STORE_API_ISSUER_ID, APP_STORE_API_KEY_PATH env vars.',
       );
     }
@@ -173,14 +186,14 @@ class AndroidConfig {
     final track = yaml['track'] as String? ?? 'internal';
     const validTracks = ['internal', 'alpha', 'beta', 'production'];
     if (!validTracks.contains(track)) {
-      throw FlightDeckConfigException(
+      throw JetwayConfigException(
         'Invalid android.track: "$track". Must be one of: ${validTracks.join(', ')}',
       );
     }
 
     final artifact = yaml['artifact'] as String? ?? 'aab';
     if (!['aab', 'apk'].contains(artifact)) {
-      throw FlightDeckConfigException(
+      throw JetwayConfigException(
         'Invalid android.artifact: "$artifact". Must be "aab" or "apk".',
       );
     }
@@ -198,7 +211,7 @@ class AndroidConfig {
 
   void validate() {
     if (!File(keystorePath).existsSync()) {
-      throw FlightDeckConfigException(
+      throw JetwayConfigException(
         'Android keystore not found at: $keystorePath',
       );
     }
@@ -206,9 +219,9 @@ class AndroidConfig {
     final hasServiceAccount = serviceAccountPath != null ||
         _lookupEnv('GOOGLE_PLAY_SERVICE_ACCOUNT') != null;
     if (!hasServiceAccount) {
-      throw FlightDeckConfigException(
+      throw JetwayConfigException(
         'Android deployment requires a Google Play service account.\n'
-        'Set android.service_account in flightdeck.yaml\n'
+        'Set android.service_account in jetway.yaml\n'
         'or set GOOGLE_PLAY_SERVICE_ACCOUNT env var (path to JSON file).',
       );
     }
@@ -236,14 +249,14 @@ extension DeployPlatformParsing on DeployPlatform {
       case 'all':
         return DeployPlatform.all;
       default:
-        throw FlightDeckConfigException('Unknown platform: $value. Use ios, android, or all.');
+        throw JetwayConfigException('Unknown platform: $value. Use ios, android, or all.');
     }
   }
 }
 
-class FlightDeckConfigException implements Exception {
+class JetwayConfigException implements Exception {
   final String message;
-  FlightDeckConfigException(this.message);
+  JetwayConfigException(this.message);
 
   @override
   String toString() => message;
@@ -251,7 +264,7 @@ class FlightDeckConfigException implements Exception {
 
 void _requireKey(YamlMap yaml, String key, String section) {
   if (!yaml.containsKey(key) || yaml[key] == null) {
-    throw FlightDeckConfigException('Missing required "$section.$key" in flightdeck.yaml');
+    throw JetwayConfigException('Missing required "$section.$key" in config file');
   }
 }
 

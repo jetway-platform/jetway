@@ -16,7 +16,7 @@ class InitCommand extends Command<int> {
 
   @override
   final String description =
-      'Guided setup wizard to generate flightdeck.yaml for your project.';
+      'Guided setup wizard to generate jetway.yaml for your project.';
 
   final Logger _logger;
   late final CliPrompt _prompt;
@@ -28,7 +28,7 @@ class InitCommand extends Command<int> {
   @override
   Future<int> run() async {
     _logger.info('');
-    _logger.info('FlightDeck Setup Wizard\n');
+    _logger.info('Jetway Setup Wizard\n');
 
     if (!_isFlutterProject()) {
       _logger.err(
@@ -37,14 +37,14 @@ class InitCommand extends Command<int> {
       return 1;
     }
 
-    final configFile = File(path.join(Directory.current.path, 'flightdeck.yaml'));
+    final configFile = File(path.join(Directory.current.path, 'jetway.yaml'));
     if (configFile.existsSync()) {
       final overwrite = _logger.confirm(
-        'flightdeck.yaml already exists. Overwrite?',
+        'jetway.yaml already exists. Overwrite?',
         defaultValue: false,
       );
       if (!overwrite) {
-        _logger.info('Aborted. Run `flightdeck setup` to update platform credentials.');
+        _logger.info('Aborted. Run `jetway setup` to update platform credentials.');
         return 0;
       }
     }
@@ -56,7 +56,7 @@ class InitCommand extends Command<int> {
     final detectedIosBundleId = detector.detectIosBundleId();
     final bundleId = _prompt.prompt(
       'iOS Bundle ID',
-      detectedIosBundleId ?? 'com.yourcompany.${appName.toLowerCase().replaceAll(' ', '')}',
+      detectedIosBundleId ?? 'com.example.${appName.toLowerCase().replaceAll(' ', '')}',
     );
 
     final detectedPackageName = detector.detectAndroidPackageName();
@@ -78,8 +78,8 @@ class InitCommand extends Command<int> {
       androidBlock = result;
     }
 
-    final configContent = '''# flightdeck.yaml — Flutter deployment config
-# Docs: https://github.com/AbdLim/flightdeck-cli
+    final configContent = '''# jetway.yaml — Flutter deployment config
+# Docs: https://github.com/AbdLim/jetway-cli
 
 app:
   name: "$appName"
@@ -91,9 +91,9 @@ $iosBlock$androidBlock
     configFile.writeAsStringSync(configContent);
 
     _logger.info('');
-    _logger.success('flightdeck.yaml created successfully.');
+    _logger.success('jetway.yaml created successfully.');
     _logger.info('Ensure keys/ and .env are added to your .gitignore to protect secrets.');
-    _logger.info('Run `flightdeck deploy` when you are ready to release.\n');
+    _logger.info('Run `jetway deploy` when you are ready to release.\n');
 
     return 0;
   }
@@ -103,7 +103,7 @@ $iosBlock$androidBlock
 
     _logger.info('App Store Connect API key required:\n');
     _logger.info('  1. Go to: App Store Connect -> Users & Access -> Integrations -> API');
-    _logger.info('  2. Click "+" -> Name it "FlightDeck" -> Role: App Manager');
+    _logger.info('  2. Click "+" -> Name it "Jetway" -> Role: App Manager');
     _logger.info('  3. Download the .p8 file');
     _logger.info('  4. Copy your Key ID and Issuer ID\n');
 
