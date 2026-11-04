@@ -1,6 +1,6 @@
 # jetway.yaml — Flutter deployment config
 # Run `jetway init` to generate this interactively.
-# Docs: https://github.com/AbdLim/jetway-cli
+# Docs: https://github.com/jetway-platform/jetway.git
 
 app:
   name: "My Flutter App"

@@ -1,7 +1,7 @@
 name: jetway
 description: A CLI tool for Flutter developers to deploy apps to App Store and Google Play.
 version: 0.2.5
-repository: https://github.com/AbdLim/jetway-cli
+repository: https://github.com/jetway-platform/jetway
 
 environment:
     sdk: ">=3.0.0 <4.0.0"

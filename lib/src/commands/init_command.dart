@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as path;
@@ -15,8 +16,7 @@ class InitCommand extends Command<int> {
   final String name = 'init';
 
   @override
-  final String description =
-      'Guided setup wizard to generate jetway.yaml for your project.';
+  final String description = 'Guided setup wizard to generate jetway.yaml for your project.';
 
   final Logger _logger;
   late final CliPrompt _prompt;
@@ -79,7 +79,7 @@ class InitCommand extends Command<int> {
     }
 
     final configContent = '''# jetway.yaml — Flutter deployment config
-# Docs: https://github.com/AbdLim/jetway-cli
+# Docs: https://github.com/jetway-platform/jetway.git
 
 app:
   name: "$appName"
@@ -107,7 +107,8 @@ $iosBlock$androidBlock
     _logger.info('  3. Download the .p8 file');
     _logger.info('  4. Copy your Key ID and Issuer ID\n');
 
-    final shouldOpen = _logger.confirm('Open App Store Connect in browser now?', defaultValue: true);
+    final shouldOpen =
+        _logger.confirm('Open App Store Connect in browser now?', defaultValue: true);
     if (shouldOpen) {
       await _prompt.openUrl('https://appstoreconnect.apple.com/access/integrations/api');
       _logger.info('\n  Waiting for key generation...\n');
@@ -218,7 +219,8 @@ ios:
     _logger.info('  3. Create a Service Account with Release Manager permissions');
     _logger.info('  4. Generate and download a JSON key\n');
 
-    final shouldOpen = _logger.confirm('Open Google Play Console in browser now?', defaultValue: true);
+    final shouldOpen =
+        _logger.confirm('Open Google Play Console in browser now?', defaultValue: true);
     if (shouldOpen) {
       await _prompt.openUrl('https://play.google.com/console/developers/api-access');
       _logger.info('\n  Waiting for service account setup...\n');
@@ -322,14 +324,23 @@ android:
       Directory(dir).createSync(recursive: true);
     }
 
-    final result = await Process.run('keytool', [
-      '-genkey', '-v',
-      '-keystore', targetPath,
-      '-alias', 'release',
-      '-keyalg', 'RSA',
-      '-keysize', '2048',
-      '-validity', '10000',
-    ], runInShell: true);
+    final result = await Process.run(
+        'keytool',
+        [
+          '-genkey',
+          '-v',
+          '-keystore',
+          targetPath,
+          '-alias',
+          'release',
+          '-keyalg',
+          'RSA',
+          '-keysize',
+          '2048',
+          '-validity',
+          '10000',
+        ],
+        runInShell: true);
 
     if (result.exitCode != 0) {
       _logger.err('  keytool failed: ${result.stderr}');

@@ -16,7 +16,7 @@ Thanks for your interest in contributing to Jetway! This guide covers developmen
 
 ```bash
 # Clone the repository
-git clone https://github.com/AbdLim/jetway-cli.git
+git clone https://github.com/jetway-platform/jetway.git
 cd jetway-cli
 
 # Install dependencies
