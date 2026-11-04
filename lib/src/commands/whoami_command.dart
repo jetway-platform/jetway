@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:path/path.dart' as path;
 
+import '../models/config.dart';
 import '../services/auth_storage.dart';
 import '../services/jetway_api_client.dart';
 
@@ -29,7 +33,7 @@ class WhoamiCommand extends Command<int> {
     if (authState == null || authState.accessToken.isEmpty) {
       _logger.info('');
       _logger.info(styleBold.wrap('Jetway Session Status:'));
-      _logger.info('  Status:    ${yellow.wrap('Not logged in')}' );
+      _logger.info('  Status:    ${yellow.wrap('Not logged in')}');
       _logger.info('  Mode:      Standalone local mode (Local-First)');
       _logger.info('');
       _logger.info('Run ${lightCyan.wrap('jetway login')} to link your terminal to Jetway Cloud.');
@@ -58,7 +62,30 @@ class WhoamiCommand extends Command<int> {
     _logger.info('  ${styleBold.wrap('Name:')}        ${profile.displayName ?? profile.fullName ?? '—'}');
     _logger.info('  ${styleBold.wrap('Email:')}       ${lightCyan.wrap(profile.email)}');
     _logger.info('  ${styleBold.wrap('User ID:')}     ${profile.id}');
-    _logger.info('  ${styleBold.wrap('Workspace:')}   ${profile.hasWorkspace ? green.wrap('Active') : darkGray.wrap('None')}');
+
+    if (profile.workspaces.isEmpty) {
+      _logger.info('  ${styleBold.wrap('Workspace:')}   ${darkGray.wrap('None')} (Create at https://jetway.run/create-workspace)');
+    } else if (profile.workspaces.length == 1) {
+      final ws = profile.workspaces.first;
+      _logger.info('  ${styleBold.wrap('Workspace:')}   ${styleBold.wrap(ws.name)} (${cyan.wrap(ws.slug)}) • ${green.wrap(ws.role)} [${ws.planTier}]');
+    } else {
+      _logger.info('  ${styleBold.wrap('Workspaces (${profile.workspaces.length}):')}');
+      for (final ws in profile.workspaces) {
+        _logger.info('    • ${styleBold.wrap(ws.name)} (${cyan.wrap(ws.slug)}) • ${green.wrap(ws.role)} [${ws.planTier}]');
+      }
+    }
+
+    // Check if current directory has a local jetway.yaml project
+    final configFile = File(path.join(Directory.current.path, 'jetway.yaml'));
+    if (configFile.existsSync()) {
+      try {
+        final config = JetwayConfig.fromFile(configFile.path);
+        _logger.info('  ${styleBold.wrap('Project:')}     ${styleBold.wrap(config.app.name)} (${config.app.bundleId})');
+      } catch (_) {
+        _logger.info('  ${styleBold.wrap('Project:')}     jetway.yaml (local)');
+      }
+    }
+
     _logger.info('  ${styleBold.wrap('Endpoint:')}    ${_apiClient.baseUrl}');
     _logger.info('  ${styleBold.wrap('Storage:')}     ~/.jetway/credentials.json');
     _logger.info('');

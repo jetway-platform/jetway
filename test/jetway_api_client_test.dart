@@ -148,6 +148,22 @@ void main() {
                 'full_name': 'Grace Hopper',
                 'display_name': 'admiral_grace',
               },
+              'workspaces': [
+                {
+                  'id': 1,
+                  'name': 'Rocket Lab',
+                  'slug': 'rocket-lab',
+                  'role': 'owner',
+                  'plan_tier': 'community',
+                }
+              ],
+              'workspace': {
+                'id': 1,
+                'name': 'Rocket Lab',
+                'slug': 'rocket-lab',
+                'role': 'owner',
+                'plan_tier': 'community',
+              },
             },
           }),
           200,
@@ -165,6 +181,10 @@ void main() {
       expect(profile.email, equals('developer@jetway.run'));
       expect(profile.displayName, equals('admiral_grace'));
       expect(profile.hasWorkspace, isTrue);
+      expect(profile.workspaces.length, equals(1));
+      expect(profile.workspaces.first.name, equals('Rocket Lab'));
+      expect(profile.workspaces.first.role, equals('owner'));
+      expect(profile.primaryWorkspace?.slug, equals('rocket-lab'));
     });
 
     test('getProfile throws JetwayAuthException on 401', () async {

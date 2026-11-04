@@ -62,6 +62,15 @@ void main() {
                 'full_name': 'Test Pilot',
                 'display_name': 'pilot_one',
               },
+              'workspaces': [
+                {
+                  'id': 101,
+                  'name': 'Test Workspace',
+                  'slug': 'test-workspace',
+                  'role': 'owner',
+                  'plan_tier': 'community',
+                }
+              ],
             },
           }),
           200,

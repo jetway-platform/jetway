@@ -83,6 +83,32 @@ class DeviceTokenPollResult {
   });
 }
 
+class UserWorkspace {
+  final int id;
+  final String name;
+  final String slug;
+  final String role;
+  final String planTier;
+
+  const UserWorkspace({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.role,
+    this.planTier = 'community',
+  });
+
+  factory UserWorkspace.fromJson(Map<String, dynamic> json) {
+    return UserWorkspace(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] as String?) ?? 'Unnamed Workspace',
+      slug: (json['slug'] as String?) ?? '',
+      role: (json['role'] as String?) ?? 'member',
+      planTier: (json['plan_tier'] as String?) ?? 'community',
+    );
+  }
+}
+
 class UserProfile {
   final int id;
   final String email;
@@ -90,6 +116,8 @@ class UserProfile {
   final String? displayName;
   final String? avatarUrl;
   final bool hasWorkspace;
+  final List<UserWorkspace> workspaces;
+  final UserWorkspace? primaryWorkspace;
 
   const UserProfile({
     required this.id,
@@ -98,11 +126,28 @@ class UserProfile {
     this.displayName,
     this.avatarUrl,
     required this.hasWorkspace,
+    this.workspaces = const [],
+    this.primaryWorkspace,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final root = (json['data'] as Map<String, dynamic>?) ?? json;
     final userRaw = (root['user'] as Map<String, dynamic>?) ?? root;
+
+    final workspacesRaw = (root['workspaces'] as List<dynamic>?) ?? [];
+    final workspaces = workspacesRaw
+        .whereType<Map<String, dynamic>>()
+        .map((w) => UserWorkspace.fromJson(w))
+        .toList();
+
+    final workspaceRaw = root['workspace'] as Map<String, dynamic>?;
+    final primaryWorkspace = workspaceRaw != null
+        ? UserWorkspace.fromJson(workspaceRaw)
+        : (workspaces.isNotEmpty ? workspaces.first : null);
+
+    final hasWorkspace = (root['has_workspace'] as bool?) ??
+        (root['hasWorkspace'] as bool?) ??
+        workspaces.isNotEmpty;
 
     return UserProfile(
       id: (userRaw['id'] as num).toInt(),
@@ -113,9 +158,9 @@ class UserProfile {
           userRaw['full_name'] as String?,
       avatarUrl: (userRaw['avatar_url'] as String?) ??
           (userRaw['avatarUrl'] as String?),
-      hasWorkspace: (root['has_workspace'] as bool?) ??
-          (root['hasWorkspace'] as bool?) ??
-          false,
+      hasWorkspace: hasWorkspace,
+      workspaces: workspaces,
+      primaryWorkspace: primaryWorkspace,
     );
   }
 }
