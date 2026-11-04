@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
 import '../models/config.dart';
 import '../services/app_store_connect_service.dart';
+import '../services/google_play_service.dart';
 import '../utils/project_detector.dart';
 
 /// Interactive guided setup wizard.
@@ -285,16 +286,24 @@ ios:
 
       _logger.info('\n  Verifying Google Play credentials...');
       try {
-        // Quick auth check without uploading anything
-        final result = await Process.run('dart', ['--version']);
-        if (result.exitCode == 0) {
-          _logger.success('  ✓ Service account file found\n');
-          _logger.info('  (Full credential verification happens on first deploy)\n');
-        }
+        final config = AndroidConfig(
+          keystorePath: keystorePath,
+          track: 'internal',
+          artifact: 'aab',
+          serviceAccountPath: serviceAccountPath,
+        );
+        final playService = GooglePlayService(_logger, config, packageName);
+        await playService.verifyCredentials();
+        _logger.success('  ✓ Connected to Google Play!\n');
         break;
+      } on GooglePlayException catch (e) {
+        _logger.err('  ✗ ${e.message}');
+        final retry = _logger.confirm('  Try a different path?', defaultValue: true);
+        if (!retry) break;
       } catch (e) {
-        _logger.warn('  Could not verify: $e');
-        break;
+        _logger.err('  ✗ Unexpected error: $e');
+        final retry = _logger.confirm('  Try again?', defaultValue: true);
+        if (!retry) break;
       }
     }
 
